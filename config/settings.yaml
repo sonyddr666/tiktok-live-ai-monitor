@@ -1,0 +1,44 @@
+# TikTok Live AI Monitor — Configurações
+
+tiktok:
+  default_username: ""   # @username para conectar (pode passar via CLI também)
+  reconnect_on_error: true
+  reconnect_delay_seconds: 10
+
+web:
+  host: "0.0.0.0"
+  port: 8000
+  sound_on_gift: true
+
+ai:
+  enabled: false          # false na fase 1 (monitor puro)
+  provider: "openai"      # openai | gemini
+  model: "gpt-4o-mini"
+  
+  trigger_mode: "turn"    # turn | message_threshold | gift | hybrid
+  
+  turn:
+    interval_seconds: 60
+    
+  message_threshold:
+    max_messages: 20
+    low_activity_threshold: 3
+    
+  gift:
+    enabled: true
+    lookup_profile: true
+    profile_mode: "name_only"   # name_only | full_profile
+    
+  context_window_turns: 5
+  
+  priority_filter:
+    gifts: "always"
+    followers: "always"
+    comments: "if_relevant"
+    joins: "never"
+    likes: "aggregate_only"
+    
+  token_budget:
+    max_tokens_per_hour: 50000
+    alert_at_percent: 80
+    fallback_mode: "turn_only"
