@@ -24,9 +24,10 @@ current_collector = None
 
 async def broadcast(data: dict):
     """Envia evento para todos os clientes web conectados."""
+    global connected_clients
     if not connected_clients:
         return
-    message = json.dumps(data)
+    message = json.dumps(data, ensure_ascii=False)
     dead = set()
     for ws in connected_clients:
         try:
@@ -44,6 +45,7 @@ async def root():
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    global connected_clients
     await ws.accept()
     connected_clients.add(ws)
     try:
@@ -53,13 +55,16 @@ async def websocket_endpoint(ws: WebSocket):
             if msg.get("action") == "connect":
                 username = msg.get("username", "").strip()
                 if username:
-                    await start_monitor(username)
+                    await start_monitor(username, ws)
     except WebSocketDisconnect:
+        connected_clients.discard(ws)
+    except Exception:
         connected_clients.discard(ws)
 
 
-async def start_monitor(username: str):
-    global collector_task, current_collector
+async def start_monitor(username: str, ws: WebSocket):
+    global collector_task, current_collector, connected_clients
+
     # Para monitor anterior se existir
     if current_collector:
         try:
@@ -68,8 +73,11 @@ async def start_monitor(username: str):
             pass
     if collector_task and not collector_task.done():
         collector_task.cancel()
+        try:
+            await collector_task
+        except asyncio.CancelledError:
+            pass
 
-    # Importa aqui para evitar import circular
     import sys
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from monitor.collector import LiveCollector
@@ -78,12 +86,19 @@ async def start_monitor(username: str):
     current_collector = collector
 
     collector.on_event(broadcast)
-    await broadcast({"type": "status", "message": f"Conectando em {username}..."})
+
+    # Envia status diretamente para o ws que pediu a conexão (mais seguro)
+    try:
+        await ws.send_text(json.dumps({"type": "status", "message": f"Conectando em {username}..."}))
+    except Exception:
+        pass
 
     async def run_with_retry():
         while True:
             try:
                 await collector.start()
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 await broadcast({"type": "error", "message": str(e)})
                 await asyncio.sleep(10)
