@@ -9,6 +9,49 @@ from TikTokLive.events import (
 )
 
 
+def safe_avatar(user) -> str:
+    """
+    Extrai URL do avatar com segurança.
+    A lib TikTokLive muda a estrutura entre versões:
+      - user.avatar.url          (versões antigas)
+      - user.avatar_thumb.url_list[0]  (versões novas)
+      - user.avatar_larger.url_list[0]
+    Tenta todos os caminhos sem nunca lançar exceção.
+    """
+    if user is None:
+        return ''
+    # Caminho novo: avatar_thumb ou avatar_larger
+    for attr in ('avatar_thumb', 'avatar_larger', 'avatar_medium'):
+        obj = getattr(user, attr, None)
+        if obj is None:
+            continue
+        url_list = getattr(obj, 'url_list', None)
+        if url_list:
+            return url_list[0] if isinstance(url_list, (list, tuple)) else str(url_list)
+        url = getattr(obj, 'url', None)
+        if url:
+            return str(url)
+    # Caminho antigo: user.avatar.url
+    avatar = getattr(user, 'avatar', None)
+    if avatar is not None:
+        url = getattr(avatar, 'url', None)
+        if url:
+            return str(url)
+        url_list = getattr(avatar, 'url_list', None)
+        if url_list:
+            return url_list[0] if isinstance(url_list, (list, tuple)) else str(url_list)
+    return ''
+
+
+def safe_str(user, attr: str, default='') -> str:
+    """Lê atributo de string do user sem exceção."""
+    try:
+        val = getattr(user, attr, default)
+        return str(val) if val else default
+    except Exception:
+        return default
+
+
 class LiveCollector:
     def __init__(self, username: str):
         self.username = username
@@ -42,71 +85,99 @@ class LiveCollector:
 
         @client.on(CommentEvent)
         async def on_comment(event: CommentEvent):
-            self._emit({
-                "type": "comment",
-                "user": event.user.unique_id,
-                "nickname": event.user.nickname,
-                "avatar": getattr(event.user.avatar, 'url', ''),
-                "text": event.comment,
-            })
+            try:
+                self._emit({
+                    "type": "comment",
+                    "user": safe_str(event.user, 'unique_id'),
+                    "nickname": safe_str(event.user, 'nickname'),
+                    "avatar": safe_avatar(event.user),
+                    "text": getattr(event, 'comment', ''),
+                })
+            except Exception as e:
+                self._emit({"type": "comment", "user": "?", "nickname": "?", "avatar": "", "text": ""})
 
         @client.on(GiftEvent)
         async def on_gift(event: GiftEvent):
-            if event.gift.streakable and event.streaking:
-                return  # aguarda fim do streak
-            self._emit({
-                "type": "gift",
-                "user": event.user.unique_id,
-                "nickname": event.user.nickname,
-                "avatar": getattr(event.user.avatar, 'url', ''),
-                "gift_name": event.gift.name,
-                "gift_count": event.repeat_count,
-                "coin_value": getattr(event.gift, 'diamond_count', 0),
-            })
+            try:
+                # Ignora durante o streak, aguarda o final
+                streakable = getattr(getattr(event, 'gift', None), 'streakable', False)
+                streaking = getattr(event, 'streaking', False)
+                if streakable and streaking:
+                    return
+                gift = getattr(event, 'gift', None)
+                self._emit({
+                    "type": "gift",
+                    "user": safe_str(event.user, 'unique_id'),
+                    "nickname": safe_str(event.user, 'nickname'),
+                    "avatar": safe_avatar(event.user),
+                    "gift_name": getattr(gift, 'name', 'Gift') if gift else 'Gift',
+                    "gift_count": getattr(event, 'repeat_count', 1) or 1,
+                    "coin_value": getattr(gift, 'diamond_count', 0) if gift else 0,
+                })
+            except Exception:
+                pass
 
         @client.on(LikeEvent)
         async def on_like(event: LikeEvent):
-            self._emit({
-                "type": "like",
-                "user": event.user.unique_id,
-                "nickname": event.user.nickname,
-            })
+            try:
+                self._emit({
+                    "type": "like",
+                    "user": safe_str(event.user, 'unique_id'),
+                    "nickname": safe_str(event.user, 'nickname'),
+                })
+            except Exception:
+                pass
 
         @client.on(JoinEvent)
         async def on_join(event: JoinEvent):
-            self._emit({
-                "type": "join",
-                "user": event.user.unique_id,
-                "nickname": event.user.nickname,
-                "avatar": getattr(event.user.avatar, 'url', ''),
-            })
+            try:
+                self._emit({
+                    "type": "join",
+                    "user": safe_str(event.user, 'unique_id'),
+                    "nickname": safe_str(event.user, 'nickname'),
+                    "avatar": safe_avatar(event.user),
+                })
+            except Exception:
+                pass
 
         @client.on(FollowEvent)
         async def on_follow(event: FollowEvent):
-            self._emit({
-                "type": "follow",
-                "user": event.user.unique_id,
-                "nickname": event.user.nickname,
-            })
+            try:
+                self._emit({
+                    "type": "follow",
+                    "user": safe_str(event.user, 'unique_id'),
+                    "nickname": safe_str(event.user, 'nickname'),
+                })
+            except Exception:
+                pass
 
         @client.on(ShareEvent)
         async def on_share(event: ShareEvent):
-            self._emit({
-                "type": "share",
-                "user": event.user.unique_id,
-                "nickname": event.user.nickname,
-            })
+            try:
+                self._emit({
+                    "type": "share",
+                    "user": safe_str(event.user, 'unique_id'),
+                    "nickname": safe_str(event.user, 'nickname'),
+                })
+            except Exception:
+                pass
 
         @client.on(RoomUserSeqEvent)
         async def on_viewers(event: RoomUserSeqEvent):
-            count = getattr(event, 'viewer_count', 0)
-            if count != self._viewer_count:
-                self._viewer_count = count
-                self._emit({"type": "viewers", "count": count})
+            try:
+                count = getattr(event, 'viewer_count', 0) or 0
+                if count != self._viewer_count:
+                    self._viewer_count = count
+                    self._emit({"type": "viewers", "count": count})
+            except Exception:
+                pass
 
     async def start(self):
         """Inicia a conexão sem bloquear."""
         await self.client.start()
 
     async def stop(self):
-        await self.client.disconnect()
+        try:
+            await self.client.disconnect()
+        except Exception:
+            pass
