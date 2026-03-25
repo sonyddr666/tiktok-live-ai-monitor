@@ -9,9 +9,8 @@ from TikTokLive.events import (
     CommentEvent, GiftEvent, LikeEvent, JoinEvent,
     FollowEvent, ShareEvent, RoomUserSeqEvent
 )
-from monitor.euler_counter import patch as patch_euler
+from monitor.euler_counter import patch as patch_euler, get_stats
 
-# Aplica interceptor de requests reais na importacao
 patch_euler()
 
 
@@ -66,8 +65,18 @@ class LiveCollector:
         self._handlers.append(handler)
 
     def _emit(self, event_data: dict):
+        """Emite evento de forma segura mesmo durante shutdown."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # sem loop ativo, ignora silenciosamente
         for handler in self._handlers:
-            asyncio.create_task(handler(event_data))
+            loop.create_task(handler(event_data))
+
+    def _emit_euler(self):
+        """Emite stats da Euler apos cada request interceptado."""
+        stats = get_stats()
+        self._emit({"type": "euler_stats", "count": stats["count"], "remaining": stats["remaining"]})
 
     def _setup_events(self):
         client = self.client
@@ -75,6 +84,7 @@ class LiveCollector:
         @client.on(ConnectEvent)
         async def on_connect(event):
             self._emit({"type": "connect", "username": self.username})
+            self._emit_euler()
 
         @client.on(DisconnectEvent)
         async def on_disconnect(event):
@@ -114,6 +124,7 @@ class LiveCollector:
                     "gift_count": getattr(event, 'repeat_count', 1) or 1,
                     "coin_value": getattr(gift, 'diamond_count', 0) if gift else 0,
                 })
+                self._emit_euler()
             except Exception:
                 pass
 

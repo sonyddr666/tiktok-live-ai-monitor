@@ -3,7 +3,7 @@ let ws = null;
 const giftRanking = {};
 let statsGifts = 0, statsComments = 0, statsFollows = 0, statsLikes = 0;
 
-// Dedup
+// Dedup — janela de 5s por tipo+user+texto (evita duplicatas do batch TikTokLive)
 const _seen = new Set();
 function isDup(key) {
   if (_seen.has(key)) return true;
@@ -12,7 +12,7 @@ function isDup(key) {
   return false;
 }
 function dupKey(type, user, extra) {
-  const ts = Math.floor(Date.now() / 2000);
+  const ts = Math.floor(Date.now() / 5000); // janela 5s
   return `${type}|${user}|${extra}|${ts}`;
 }
 
@@ -47,7 +47,7 @@ function playFollowSound() {
   } catch(e) {}
 }
 
-// --- Euler meter (atualiza SOMENTE via WebSocket, sem polling) ---
+// --- Euler meter ---
 const EULER_MAX_PER_MIN = 30;
 function updateEulerMeter(count) {
   const pct = Math.min(100, Math.round((count / EULER_MAX_PER_MIN) * 100));
@@ -195,5 +195,4 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('username-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') connectLive();
   });
-  // SEM polling - medidor Euler atualiza via WebSocket (euler_stats event)
 });

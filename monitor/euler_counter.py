@@ -1,16 +1,19 @@
 """
-Intercepta requests HTTP reais feitos pelo aiohttp para o host da Euler Stream.
-Usa monkey-patch no aiohttp.ClientSession._request para contar cada chamada real.
+Intercepta requests HTTP reais do httpx (usado pelo TikTokLive v6+)
+para o host da Euler Stream e conta cada chamada dentro de uma janela de 60s.
 """
 import time
-import aiohttp
+
+try:
+    import httpx
+    _HAS_HTTPX = True
+except ImportError:
+    _HAS_HTTPX = False
 
 EULER_HOST = "eulerstream.com"
 
-# Estado global do contador
 _count: int = 0
 _window_start: float = time.time()
-_original_request = None
 _patched: bool = False
 
 
@@ -39,17 +42,17 @@ def _tick():
 
 
 def patch():
-    """Aplica o monkey-patch no aiohttp uma unica vez."""
-    global _patched, _original_request
-    if _patched:
+    """Monkey-patch httpx.AsyncClient.send para contar requests reais a Euler."""
+    global _patched
+    if _patched or not _HAS_HTTPX:
         return
-    _original_request = aiohttp.ClientSession._request
 
-    async def _patched_request(self, method, str_or_url, **kwargs):
-        url = str(str_or_url)
-        if EULER_HOST in url:
+    _original_send = httpx.AsyncClient.send
+
+    async def _patched_send(self, request, **kwargs):
+        if EULER_HOST in str(request.url):
             _tick()
-        return await _original_request(self, method, str_or_url, **kwargs)
+        return await _original_send(self, request, **kwargs)
 
-    aiohttp.ClientSession._request = _patched_request
+    httpx.AsyncClient.send = _patched_send
     _patched = True
