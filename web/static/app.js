@@ -3,19 +3,15 @@ let ws = null;
 const giftRanking = {};
 let statsGifts = 0, statsComments = 0, statsFollows = 0, statsLikes = 0;
 
-// Dedup: evita mostrar o mesmo evento duas vezes (ID = tipo+user+texto+timestamp arredondado)
+// Dedup
 const _seen = new Set();
 function isDup(key) {
   if (_seen.has(key)) return true;
   _seen.add(key);
-  if (_seen.size > 500) {
-    const first = _seen.values().next().value;
-    _seen.delete(first);
-  }
+  if (_seen.size > 500) _seen.delete(_seen.values().next().value);
   return false;
 }
 function dupKey(type, user, extra) {
-  // Janela de 2 segundos para considerar duplicata
   const ts = Math.floor(Date.now() / 2000);
   return `${type}|${user}|${extra}|${ts}`;
 }
@@ -51,33 +47,23 @@ function playFollowSound() {
   } catch(e) {}
 }
 
-// --- Euler meter ---
-const EULER_MAX_PER_MIN = 30; // limite estimado do plano free
-function updateEulerMeter(count, remaining) {
+// --- Euler meter (atualiza SOMENTE via WebSocket, sem polling) ---
+const EULER_MAX_PER_MIN = 30;
+function updateEulerMeter(count) {
   const pct = Math.min(100, Math.round((count / EULER_MAX_PER_MIN) * 100));
   const bar = document.getElementById('euler-bar');
   const txt = document.getElementById('euler-count');
+  if (!bar || !txt) return;
   bar.style.width = pct + '%';
   bar.style.background = pct > 80 ? '#f44336' : pct > 50 ? '#ff9800' : '#4caf50';
   txt.textContent = `${count}/min`;
-}
-
-// Atualiza o medidor periodicamente via API
-function startEulerPolling() {
-  setInterval(async () => {
-    try {
-      const r = await fetch('/api/euler-stats');
-      const d = await r.json();
-      updateEulerMeter(d.count, d.remaining);
-    } catch(e) {}
-  }, 5000);
 }
 
 // --- WebSocket ---
 function connectLive() {
   const username = document.getElementById('username-input').value.trim();
   if (!username) return;
-  getAC(); // init audio no click
+  getAC();
   const name = username.startsWith('@') ? username : '@' + username;
   setStatus('Conectando...');
 
@@ -106,7 +92,7 @@ function handleEvent(data) {
     case 'join':        addJoin(data); break;
     case 'share':       addEventFeed('compartilhou', data.nickname, data.user, '\ud83d\udd17'); break;
     case 'like':        addLike(data); break;
-    case 'euler_stats': updateEulerMeter(data.count, data.remaining); break;
+    case 'euler_stats': updateEulerMeter(data.count); break;
   }
 }
 
@@ -209,5 +195,5 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('username-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') connectLive();
   });
-  startEulerPolling();
+  // SEM polling - medidor Euler atualiza via WebSocket (euler_stats event)
 });
