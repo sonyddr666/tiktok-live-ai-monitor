@@ -15,157 +15,120 @@
     header {
       background: #111;
       border-bottom: 2px solid #fe2c55;
-      padding: 14px 24px;
+      padding: 12px 20px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
+      flex-wrap: wrap;
     }
-    header h1 { font-size: 1.2rem; color: #fe2c55; flex-shrink: 0; }
+    header h1 { font-size: 1.1rem; color: #fe2c55; flex-shrink: 0; }
     #connect-form { display: flex; gap: 8px; flex: 1; }
     #username-input {
-      background: #1e1e1e;
-      border: 1px solid #333;
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      flex: 1;
-      max-width: 260px;
+      background: #1e1e1e; border: 1px solid #333; color: #fff;
+      padding: 7px 11px; border-radius: 6px; font-size: 0.9rem;
+      flex: 1; max-width: 240px;
     }
     #connect-btn {
-      background: #fe2c55;
-      color: #fff;
-      border: none;
-      padding: 8px 18px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.95rem;
-      font-weight: 600;
+      background: #fe2c55; color: #fff; border: none;
+      padding: 7px 16px; border-radius: 6px; cursor: pointer;
+      font-size: 0.9rem; font-weight: 600;
     }
     #connect-btn:hover { background: #c8213f; }
+
+    /* Euler meter na header */
+    #euler-meter {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; color: #666;
+      background: #161616; border: 1px solid #222;
+      border-radius: 6px; padding: 5px 10px;
+      margin-left: auto;
+    }
+    #euler-meter .em-label { color: #555; }
+    #euler-bar-wrap {
+      width: 80px; height: 6px;
+      background: #222; border-radius: 3px; overflow: hidden;
+    }
+    #euler-bar {
+      height: 100%; width: 0%;
+      background: #4caf50; border-radius: 3px;
+      transition: width 0.4s, background 0.4s;
+    }
+    #euler-count { color: #aaa; font-weight: 600; min-width: 38px; text-align: right; }
+
     #status-bar {
-      background: #161616;
-      padding: 6px 24px;
-      font-size: 0.78rem;
-      color: #666;
-      border-bottom: 1px solid #1e1e1e;
+      background: #161616; padding: 5px 20px;
+      font-size: 0.76rem; color: #555;
+      border-bottom: 1px solid #1a1a1a;
     }
     #status-bar span { color: #4caf50; }
 
-    /* Layout principal */
     .layout {
-      display: flex;
-      flex-direction: column;
-      height: calc(100vh - 74px);
-      padding: 10px;
-      gap: 10px;
+      display: flex; flex-direction: column;
+      height: calc(100vh - 72px);
+      padding: 8px; gap: 8px;
     }
-
-    /* Stats */
-    .stats-row {
-      display: flex;
-      gap: 10px;
-      flex-shrink: 0;
-    }
+    .stats-row { display: flex; gap: 8px; flex-shrink: 0; }
     .stat-card {
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 10px;
-      padding: 12px 16px;
-      flex: 1;
-      text-align: center;
+      background: #111; border: 1px solid #1e1e1e;
+      border-radius: 10px; padding: 10px 14px; flex: 1; text-align: center;
     }
-    .stat-card .val { font-size: 1.6rem; font-weight: 700; color: #fe2c55; }
-    .stat-card .lbl { font-size: 0.72rem; color: #555; margin-top: 2px; }
+    .stat-card .val { font-size: 1.5rem; font-weight: 700; color: #fe2c55; }
+    .stat-card .lbl { font-size: 0.7rem; color: #555; margin-top: 2px; }
 
-    /* Grid de painéis */
     .panels {
       display: grid;
-      grid-template-columns: 1.4fr 1fr 1fr 300px;
-      gap: 10px;
-      flex: 1;
-      min-height: 0;
+      grid-template-columns: 1.4fr 1fr 1fr 280px;
+      gap: 8px; flex: 1; min-height: 0;
     }
     .card {
-      background: #111;
-      border: 1px solid #1e1e1e;
-      border-radius: 10px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
+      background: #111; border: 1px solid #1a1a1a;
+      border-radius: 10px; display: flex;
+      flex-direction: column; overflow: hidden; min-height: 0;
     }
     .card-header {
-      padding: 9px 12px;
-      background: #161616;
-      border-bottom: 1px solid #1e1e1e;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: #888;
-      flex-shrink: 0;
+      padding: 8px 12px; background: #161616;
+      border-bottom: 1px solid #1a1a1a;
+      font-size: 0.8rem; font-weight: 600; color: #777; flex-shrink: 0;
     }
     .card-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 10px;
-      min-height: 0;
+      flex: 1; overflow-y: auto; padding: 7px 9px; min-height: 0;
     }
     .card-body::-webkit-scrollbar { width: 3px; }
-    .card-body::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+    .card-body::-webkit-scrollbar-thumb { background: #252525; border-radius: 4px; }
 
-    /* Chat */
     .comment-item {
-      display: flex;
-      gap: 7px;
-      padding: 5px 0;
-      border-bottom: 1px solid #161616;
-      font-size: 0.83rem;
-      align-items: flex-start;
+      display: flex; gap: 6px; padding: 4px 0;
+      border-bottom: 1px solid #141414;
+      font-size: 0.82rem; align-items: flex-start;
     }
-    .comment-item img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .comment-item img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     .comment-item .uname { color: #fe2c55; font-weight: 600; }
     .comment-item .text { color: #bbb; }
 
-    /* Gifts */
     .gift-item {
-      background: #140810;
-      border: 1px solid #2e1020;
-      border-radius: 8px;
-      padding: 7px 9px;
-      margin-bottom: 5px;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-size: 0.83rem;
-      animation: fadeIn 0.25s ease;
+      background: #120810; border: 1px solid #2a0e1e;
+      border-radius: 7px; padding: 6px 8px; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; animation: fadeIn 0.25s ease;
     }
-    .gift-item img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .gift-item img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     .gift-user { color: #fe2c55; font-weight: 600; }
     .gift-name { color: #ffd700; }
-    .gift-count { color: #888; font-size: 0.76rem; }
-    @keyframes fadeIn { from { opacity:0; transform: translateY(-5px); } to { opacity:1; } }
+    .gift-count { color: #777; font-size: 0.74rem; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; } }
 
-    /* Eventos (curtidas, entradas, shares, follows) */
     .event-item {
-      padding: 4px 0;
-      border-bottom: 1px solid #161616;
-      font-size: 0.79rem;
-      color: #666;
+      padding: 3px 0; border-bottom: 1px solid #141414;
+      font-size: 0.78rem; color: #555;
     }
-    .event-icon { margin-right: 4px; }
     .ev-user { color: #5bc8ff; }
 
-    /* Ranking */
     .rank-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 0;
-      border-bottom: 1px solid #161616;
-      font-size: 0.83rem;
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 0; border-bottom: 1px solid #141414; font-size: 0.82rem;
     }
-    .rank-pos { width: 24px; text-align: center; font-weight: 700; color: #555; }
-    .rank-item img { width: 26px; height: 26px; border-radius: 50%; }
+    .rank-pos { width: 22px; text-align: center; font-weight: 700; color: #444; }
+    .rank-item img { width: 24px; height: 24px; border-radius: 50%; }
     .rname { flex: 1; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rcount { color: #fe2c55; font-weight: 700; flex-shrink: 0; }
   </style>
@@ -178,13 +141,17 @@
     <input id="username-input" type="text" placeholder="@username da live" />
     <button id="connect-btn" onclick="connectLive()">Conectar</button>
   </div>
+  <!-- Medidor Euler -->
+  <div id="euler-meter">
+    <span class="em-label">⚡ Euler</span>
+    <div id="euler-bar-wrap"><div id="euler-bar"></div></div>
+    <span id="euler-count">0 / min</span>
+  </div>
 </header>
 
 <div id="status-bar">Status: <span id="status-text">aguardando conexão...</span></div>
 
 <div class="layout">
-
-  <!-- Stats -->
   <div class="stats-row">
     <div class="stat-card"><div class="val" id="stat-viewers">0</div><div class="lbl">👁 Viewers</div></div>
     <div class="stat-card"><div class="val" id="stat-gifts">0</div><div class="lbl">🎁 Gifts</div></div>
@@ -193,33 +160,23 @@
     <div class="stat-card"><div class="val" id="stat-likes">0</div><div class="lbl">👍 Curtidas</div></div>
   </div>
 
-  <!-- Painéis -->
   <div class="panels">
-
-    <!-- Chat -->
     <div class="card">
       <div class="card-header">💬 Chat ao Vivo</div>
       <div class="card-body" id="comment-feed"></div>
     </div>
-
-    <!-- Gifts -->
     <div class="card">
       <div class="card-header">🎁 Gifts Recebidos</div>
       <div class="card-body" id="gift-feed"></div>
     </div>
-
-    <!-- Eventos (curtidas, entradas, follows, shares) -->
     <div class="card">
       <div class="card-header">⚡ Atividade</div>
       <div class="card-body" id="event-feed"></div>
     </div>
-
-    <!-- Ranking -->
     <div class="card">
       <div class="card-header">🏆 TOP Gifters</div>
       <div class="card-body" id="ranking"></div>
     </div>
-
   </div>
 </div>
 
