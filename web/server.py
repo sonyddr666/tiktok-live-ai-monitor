@@ -11,7 +11,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-# Garante que o root do projeto esteja no path uma unica vez
 _root = str(Path(__file__).parent.parent)
 if _root not in sys.path:
     sys.path.insert(0, _root)
@@ -29,6 +28,7 @@ current_username: str = ""
 
 
 async def broadcast(data: dict):
+    global connected_clients
     if not connected_clients:
         return
     message = json.dumps(data, ensure_ascii=False)
@@ -38,7 +38,8 @@ async def broadcast(data: dict):
             await ws.send_text(message)
         except Exception:
             dead.add(ws)
-    connected_clients -= dead
+    if dead:
+        connected_clients = connected_clients - dead
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -106,7 +107,6 @@ async def start_monitor(username: str, ws: WebSocket):
     async def run_with_retry():
         global current_collector
         while True:
-            # Nova instancia a cada tentativa — TikTokLiveClient nao e reutilizavel
             collector = LiveCollector(username)
             current_collector = collector
             collector.on_event(broadcast)
