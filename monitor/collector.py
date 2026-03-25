@@ -1,7 +1,9 @@
 """Captura eventos do TikTokLive e emite para os handlers registrados."""
 import asyncio
+import os
 from typing import Callable, List
 from TikTokLive import TikTokLiveClient
+from TikTokLive.client.web.web_settings import WebDefaults
 from TikTokLive.events import (
     ConnectEvent, DisconnectEvent, LiveEndEvent,
     CommentEvent, GiftEvent, LikeEvent, JoinEvent,
@@ -9,18 +11,23 @@ from TikTokLive.events import (
 )
 
 
+def _apply_euler_key():
+    """Aplica a chave da Euler Stream se estiver no .env, evitando rate limit."""
+    key = os.getenv("EULER_API_KEY", "").strip()
+    if key:
+        WebDefaults.tiktok_sign_api_key = key
+
+
 def safe_avatar(user) -> str:
     """
     Extrai URL do avatar com segurança.
     A lib TikTokLive muda a estrutura entre versões:
-      - user.avatar.url          (versões antigas)
       - user.avatar_thumb.url_list[0]  (versões novas)
-      - user.avatar_larger.url_list[0]
+      - user.avatar.url                (versões antigas)
     Tenta todos os caminhos sem nunca lançar exceção.
     """
     if user is None:
         return ''
-    # Caminho novo: avatar_thumb ou avatar_larger
     for attr in ('avatar_thumb', 'avatar_larger', 'avatar_medium'):
         obj = getattr(user, attr, None)
         if obj is None:
@@ -31,7 +38,6 @@ def safe_avatar(user) -> str:
         url = getattr(obj, 'url', None)
         if url:
             return str(url)
-    # Caminho antigo: user.avatar.url
     avatar = getattr(user, 'avatar', None)
     if avatar is not None:
         url = getattr(avatar, 'url', None)
@@ -44,7 +50,6 @@ def safe_avatar(user) -> str:
 
 
 def safe_str(user, attr: str, default='') -> str:
-    """Lê atributo de string do user sem exceção."""
     try:
         val = getattr(user, attr, default)
         return str(val) if val else default
@@ -54,6 +59,7 @@ def safe_str(user, attr: str, default='') -> str:
 
 class LiveCollector:
     def __init__(self, username: str):
+        _apply_euler_key()  # aplica antes de criar o client
         self.username = username
         self.client = TikTokLiveClient(unique_id=username)
         self._handlers: List[Callable] = []
@@ -61,7 +67,6 @@ class LiveCollector:
         self._setup_events()
 
     def on_event(self, handler: Callable):
-        """Registra um handler que recebe dict de evento."""
         self._handlers.append(handler)
 
     def _emit(self, event_data: dict):
@@ -93,13 +98,12 @@ class LiveCollector:
                     "avatar": safe_avatar(event.user),
                     "text": getattr(event, 'comment', ''),
                 })
-            except Exception as e:
-                self._emit({"type": "comment", "user": "?", "nickname": "?", "avatar": "", "text": ""})
+            except Exception:
+                pass
 
         @client.on(GiftEvent)
         async def on_gift(event: GiftEvent):
             try:
-                # Ignora durante o streak, aguarda o final
                 streakable = getattr(getattr(event, 'gift', None), 'streakable', False)
                 streaking = getattr(event, 'streaking', False)
                 if streakable and streaking:
@@ -173,7 +177,6 @@ class LiveCollector:
                 pass
 
     async def start(self):
-        """Inicia a conexão sem bloquear."""
         await self.client.start()
 
     async def stop(self):
