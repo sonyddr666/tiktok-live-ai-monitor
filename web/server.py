@@ -41,14 +41,6 @@ async def root():
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
-@app.get("/api/euler-stats")
-async def euler_stats():
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from monitor.euler_counter import get_stats
-    return get_stats()
-
-
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
