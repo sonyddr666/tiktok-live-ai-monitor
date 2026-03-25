@@ -68,12 +68,41 @@
       padding: 8px; gap: 8px;
     }
     .stats-row { display: flex; gap: 8px; flex-shrink: 0; }
+    .hero-row { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 8px; flex-shrink: 0; }
     .stat-card {
       background: #111; border: 1px solid #1e1e1e;
       border-radius: 10px; padding: 10px 14px; flex: 1; text-align: center;
     }
     .stat-card .val { font-size: 1.5rem; font-weight: 700; color: #fe2c55; }
     .stat-card .lbl { font-size: 0.7rem; color: #555; margin-top: 2px; }
+    .hero-card {
+      background: #111; border: 1px solid #1e1e1e; border-radius: 10px; overflow: hidden;
+      min-height: 140px; position: relative;
+    }
+    .hero-cover {
+      position: absolute; inset: 0; background: linear-gradient(135deg, #1b1b1b, #090909);
+      background-size: cover; background-position: center;
+      filter: saturate(0.9);
+    }
+    .hero-overlay {
+      position: relative; z-index: 1; padding: 14px; display: flex; gap: 12px; align-items: flex-end;
+      min-height: 140px; background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.78));
+    }
+    .hero-avatar {
+      width: 58px; height: 58px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.12);
+      background: #222;
+    }
+    .hero-title { font-size: 1rem; font-weight: 700; color: #fff; }
+    .hero-meta { color: #aaa; font-size: 0.78rem; margin-top: 3px; }
+    .limits-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px;
+    }
+    .limit-box {
+      background: #151515; border: 1px solid #232323; border-radius: 8px; padding: 10px;
+    }
+    .limit-box .k { color: #666; font-size: 0.72rem; }
+    .limit-box .v { color: #fff; font-size: 1rem; font-weight: 700; margin-top: 4px; }
+    .limit-box .s { color: #888; font-size: 0.72rem; margin-top: 2px; }
 
     .panels {
       display: grid;
@@ -102,8 +131,13 @@
       font-size: 0.82rem; align-items: flex-start;
     }
     .comment-item img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .comment-content { min-width: 0; }
+    .user-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .display-name { color: #fff; font-weight: 700; }
     .comment-item .uname { color: #fe2c55; font-weight: 600; }
     .comment-item .text { color: #bbb; }
+    .muted-user { color: #777; font-size: 0.75rem; }
+    .verified { color: #5bc8ff; font-size: 0.72rem; font-weight: 700; }
 
     .gift-item {
       background: #120810; border: 1px solid #2a0e1e;
@@ -112,6 +146,7 @@
       font-size: 0.82rem; animation: fadeIn 0.25s ease;
     }
     .gift-item img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .gift-icon { width: 18px !important; height: 18px !important; border-radius: 4px !important; vertical-align: middle; margin-right: 4px; }
     .gift-user { color: #fe2c55; font-weight: 600; }
     .gift-name { color: #ffd700; }
     .gift-count { color: #777; font-size: 0.74rem; }
@@ -120,7 +155,10 @@
     .event-item {
       padding: 3px 0; border-bottom: 1px solid #141414;
       font-size: 0.78rem; color: #555;
+      display: flex; align-items: center; gap: 6px;
     }
+    .event-avatar { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .ev-name { color: #ddd; font-weight: 600; }
     .ev-user { color: #5bc8ff; }
 
     .rank-item {
@@ -152,6 +190,39 @@
 <div id="status-bar">Status: <span id="status-text">aguardando conexão...</span></div>
 
 <div class="layout">
+  <div class="hero-row">
+    <div class="hero-card">
+      <div class="hero-cover" id="live-cover"></div>
+      <div class="hero-overlay">
+        <img class="hero-avatar" id="creator-avatar" src="" alt="" />
+        <div>
+          <div class="hero-title" id="live-title">Sem live carregada</div>
+          <div class="hero-meta" id="creator-meta">Conecte em uma live para ver titulo, criador e imagem.</div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-card">
+      <div class="card-header">Plano Free Euler</div>
+      <div class="limits-grid">
+        <div class="limit-box">
+          <div class="k">Minuto</div>
+          <div class="v" id="limit-minute-remaining">-</div>
+          <div class="s" id="limit-minute-max">/ -</div>
+        </div>
+        <div class="limit-box">
+          <div class="k">Hora</div>
+          <div class="v" id="limit-hour-remaining">-</div>
+          <div class="s" id="limit-hour-max">/ -</div>
+        </div>
+        <div class="limit-box">
+          <div class="k">Dia</div>
+          <div class="v" id="limit-day-remaining">-</div>
+          <div class="s" id="limit-day-max">/ -</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="stats-row">
     <div class="stat-card"><div class="val" id="stat-viewers">0</div><div class="lbl">👁 Viewers</div></div>
     <div class="stat-card"><div class="val" id="stat-gifts">0</div><div class="lbl">🎁 Gifts</div></div>
@@ -180,6 +251,6 @@
   </div>
 </div>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=20260324-avatars-3"></script>
 </body>
 </html>

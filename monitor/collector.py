@@ -29,24 +29,22 @@ def _apply_euler_key():
 def safe_avatar(user) -> str:
     if user is None:
         return ''
-    for attr in ('avatar_thumb', 'avatar_larger', 'avatar_medium'):
+    for attr in ('avatar_thumb', 'avatar_large', 'avatar_medium', 'avatar_jpg', 'avatar'):
         obj = getattr(user, attr, None)
         if obj is None:
             continue
+        m_urls = getattr(obj, 'm_urls', None)
+        if m_urls:
+            return m_urls[0] if isinstance(m_urls, (list, tuple)) else str(m_urls)
         url_list = getattr(obj, 'url_list', None)
         if url_list:
             return url_list[0] if isinstance(url_list, (list, tuple)) else str(url_list)
+        m_uri = getattr(obj, 'm_uri', None)
+        if m_uri:
+            return str(m_uri)
         url = getattr(obj, 'url', None)
         if url:
             return str(url)
-    avatar = getattr(user, 'avatar', None)
-    if avatar is not None:
-        url = getattr(avatar, 'url', None)
-        if url:
-            return str(url)
-        url_list = getattr(avatar, 'url_list', None)
-        if url_list:
-            return url_list[0] if isinstance(url_list, (list, tuple)) else str(url_list)
     return ''
 
 
@@ -56,6 +54,137 @@ def safe_str(user, attr: str, default='') -> str:
         return str(val) if val else default
     except Exception:
         return default
+
+
+def safe_int(obj, attr: str, default=0) -> int:
+    try:
+        val = getattr(obj, attr, default)
+        return int(val) if val is not None else default
+    except Exception:
+        return default
+
+
+def safe_bool(obj, attr: str, default=False) -> bool:
+    try:
+        return bool(getattr(obj, attr, default))
+    except Exception:
+        return default
+
+
+def serialize_user(user) -> dict:
+    if user is None:
+        return {
+            "user_id": "",
+            "username": "",
+            "nickname": "",
+            "sec_uid": "",
+            "avatar": "",
+            "verified": False,
+            "followers": 0,
+            "following": 0,
+        }
+
+    follow_info = getattr(user, "follow_info", None)
+    username = safe_str(user, "unique_id") or safe_str(user, "username")
+    nickname = safe_str(user, "nickname") or safe_str(user, "nick_name")
+
+    return {
+        "user_id": safe_str(user, "id"),
+        "username": username,
+        "nickname": nickname,
+        "sec_uid": safe_str(user, "sec_uid"),
+        "avatar": safe_avatar(user),
+        "verified": safe_bool(user, "is_verified"),
+        "followers": safe_int(follow_info, "follower_count"),
+        "following": safe_int(follow_info, "following_count"),
+    }
+
+
+def deep_get(data, *keys, default=None):
+    cur = data
+    for key in keys:
+        if isinstance(cur, dict):
+            cur = cur.get(key)
+        else:
+            cur = getattr(cur, key, None)
+        if cur is None:
+            return default
+    return cur
+
+
+def pick_image_url(value) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, str) and item:
+                return item
+            if isinstance(item, dict):
+                nested = pick_image_url(item.get("url_list") or item.get("urls") or item.get("url"))
+                if nested:
+                    return nested
+    if isinstance(value, dict):
+        for key in ("url_list", "urls", "cover_url", "avatar_url", "url", "uri"):
+            nested = pick_image_url(value.get(key))
+            if nested:
+                return nested
+    return ""
+
+
+def serialize_room_info(room_info: dict | None, fallback_username: str) -> dict:
+    room_info = room_info or {}
+    owner = deep_get(room_info, "owner", default={}) or deep_get(room_info, "user", default={}) or {}
+    title = deep_get(room_info, "title", default="") or deep_get(room_info, "room_title", default="")
+    cover = (
+        pick_image_url(deep_get(room_info, "cover", default=None))
+        or pick_image_url(deep_get(room_info, "cover_url", default=None))
+        or pick_image_url(deep_get(room_info, "dynamic_cover", default=None))
+    )
+    avatar = (
+        pick_image_url(deep_get(owner, "avatar_thumb", default=None))
+        or pick_image_url(deep_get(owner, "avatar_large", default=None))
+        or pick_image_url(deep_get(owner, "avatar_url", default=None))
+    )
+    return {
+        "room_id": safe_str(room_info, "id") or safe_str(room_info, "room_id"),
+        "title": title,
+        "cover": cover,
+        "stream_url_hls": deep_get(room_info, "hls_pull_url", default="") or deep_get(room_info, "stream_url", default=""),
+        "stream_url_flv": deep_get(room_info, "flv_pull_url", default=""),
+        "current_viewers": safe_int(room_info, "user_count") or safe_int(room_info, "current_viewers"),
+        "total_viewers": safe_int(room_info, "total_user_count") or safe_int(room_info, "total_viewers"),
+        "start_time": safe_int(room_info, "create_time") or safe_int(room_info, "start_time"),
+        "creator": {
+            "user_id": safe_str(owner, "id") or safe_str(owner, "numeric_uid"),
+            "username": safe_str(owner, "unique_id") or fallback_username.lstrip("@"),
+            "nickname": safe_str(owner, "nickname"),
+            "signature": safe_str(owner, "signature"),
+            "sec_uid": safe_str(owner, "sec_uid"),
+            "avatar": avatar,
+            "verified": safe_bool(owner, "is_verified"),
+            "followers": safe_int(owner, "followers"),
+            "following": safe_int(owner, "following"),
+        }
+    }
+
+
+def serialize_gift_info(gift_info: dict | None) -> dict:
+    gift_info = gift_info or {}
+    gifts = []
+    raw_list = gift_info.get("gifts") or gift_info.get("gift_list") or []
+    for item in raw_list:
+        if not isinstance(item, dict):
+            continue
+        gifts.append({
+            "id": item.get("id") or item.get("gift_id"),
+            "name": item.get("name") or item.get("describe") or "Gift",
+            "diamond_count": item.get("diamond_count") or item.get("diamondCount") or 0,
+            "image": pick_image_url(item.get("image") or item.get("icon") or item.get("gift_image")),
+        })
+    return {
+        "count": len(gifts),
+        "gifts": gifts,
+    }
 
 
 class _DedupCache:
@@ -100,6 +229,7 @@ class LiveCollector:
         self._handlers: List[Callable] = []
         self._viewer_count = 0
         self._dedup = _DedupCache()
+        self._client_task: asyncio.Task | None = None
         self._setup_events()
 
     def on_event(self, handler: Callable):
@@ -139,7 +269,8 @@ class LiveCollector:
         @client.on(CommentEvent)
         async def on_comment(event: CommentEvent):
             try:
-                uid = safe_str(event.user, 'unique_id')
+                profile = serialize_user(event.user)
+                uid = profile["username"]
                 text = getattr(event, 'comment', '') or ''
                 # comentarios: user + texto exato. TTL=15s evita suprimir
                 # mensagens iguais enviadas de proposito pelo mesmo user
@@ -148,8 +279,9 @@ class LiveCollector:
                 self._emit({
                     "type": "comment",
                     "user": uid,
-                    "nickname": safe_str(event.user, 'nickname'),
-                    "avatar": safe_avatar(event.user),
+                    "nickname": profile["nickname"],
+                    "avatar": profile["avatar"],
+                    "profile": profile,
                     "text": text,
                 })
             except Exception:
@@ -163,7 +295,8 @@ class LiveCollector:
                 streaking = getattr(event, 'streaking', False)
                 if streakable and streaking:
                     return
-                uid = safe_str(event.user, 'unique_id')
+                profile = serialize_user(event.user)
+                uid = profile["username"]
                 gift_name = getattr(gift, 'name', 'Gift') if gift else 'Gift'
                 count = str(getattr(event, 'repeat_count', 1) or 1)
                 if self._dup('gift', uid, gift_name + count):
@@ -171,8 +304,9 @@ class LiveCollector:
                 self._emit({
                     "type": "gift",
                     "user": uid,
-                    "nickname": safe_str(event.user, 'nickname'),
-                    "avatar": safe_avatar(event.user),
+                    "nickname": profile["nickname"],
+                    "avatar": profile["avatar"],
+                    "profile": profile,
                     "gift_name": gift_name,
                     "gift_count": int(count),
                     "coin_value": getattr(gift, 'diamond_count', 0) if gift else 0,
@@ -184,13 +318,16 @@ class LiveCollector:
         @client.on(LikeEvent)
         async def on_like(event: LikeEvent):
             try:
-                uid = safe_str(event.user, 'unique_id')
+                profile = serialize_user(event.user)
+                uid = profile["username"]
                 if self._dup('like', uid, uid):
                     return
                 self._emit({
                     "type": "like",
                     "user": uid,
-                    "nickname": safe_str(event.user, 'nickname'),
+                    "nickname": profile["nickname"],
+                    "avatar": profile["avatar"],
+                    "profile": profile,
                 })
             except Exception:
                 pass
@@ -198,14 +335,16 @@ class LiveCollector:
         @client.on(JoinEvent)
         async def on_join(event: JoinEvent):
             try:
-                uid = safe_str(event.user, 'unique_id')
+                profile = serialize_user(event.user)
+                uid = profile["username"]
                 if self._dup('join', uid, uid):
                     return
                 self._emit({
                     "type": "join",
                     "user": uid,
-                    "nickname": safe_str(event.user, 'nickname'),
-                    "avatar": safe_avatar(event.user),
+                    "nickname": profile["nickname"],
+                    "avatar": profile["avatar"],
+                    "profile": profile,
                 })
             except Exception:
                 pass
@@ -213,13 +352,16 @@ class LiveCollector:
         @client.on(FollowEvent)
         async def on_follow(event: FollowEvent):
             try:
-                uid = safe_str(event.user, 'unique_id')
+                profile = serialize_user(event.user)
+                uid = profile["username"]
                 if self._dup('follow', uid, uid):
                     return
                 self._emit({
                     "type": "follow",
                     "user": uid,
-                    "nickname": safe_str(event.user, 'nickname'),
+                    "nickname": profile["nickname"],
+                    "avatar": profile["avatar"],
+                    "profile": profile,
                 })
             except Exception:
                 pass
@@ -227,13 +369,16 @@ class LiveCollector:
         @client.on(ShareEvent)
         async def on_share(event: ShareEvent):
             try:
-                uid = safe_str(event.user, 'unique_id')
+                profile = serialize_user(event.user)
+                uid = profile["username"]
                 if self._dup('share', uid, uid):
                     return
                 self._emit({
                     "type": "share",
                     "user": uid,
-                    "nickname": safe_str(event.user, 'nickname'),
+                    "nickname": profile["nickname"],
+                    "avatar": profile["avatar"],
+                    "profile": profile,
                 })
             except Exception:
                 pass
@@ -249,10 +394,29 @@ class LiveCollector:
                 pass
 
     async def start(self):
-        await self.client.start()
+        self._client_task = await self.client.start(fetch_room_info=True, fetch_gift_info=True)
+        self._emit({
+            "type": "room_info",
+            "room": serialize_room_info(self.client.room_info, self.username),
+        })
+        self._emit({
+            "type": "gift_catalog",
+            "catalog": serialize_gift_info(self.client.gift_info),
+        })
+        await self._client_task
 
     async def stop(self):
+        task = self._client_task
         try:
+            if task and not task.done():
+                task.cancel()
             await self.client.disconnect()
+            if task and not task.done():
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), timeout=3.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass
         except Exception:
             pass
+        finally:
+            self._client_task = None

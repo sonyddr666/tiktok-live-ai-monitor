@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Set, Optional
 
+import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +26,27 @@ connected_clients: Set[WebSocket] = set()
 collector_task: Optional[asyncio.Task] = None
 current_collector = None
 current_username: str = ""
+
+
+async def fetch_euler_rate_limits() -> dict:
+    api_key = os.getenv("EULER_API_KEY", "").strip()
+    params = {"apiKey": api_key} if api_key else {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get("https://tiktok.eulerstream.com/webcast/rate_limits", params=params)
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "type": "euler_limits",
+                "limits": {
+                    "minute": data.get("minute", {}),
+                    "hour": data.get("hour", {}),
+                    "day": data.get("day", {}),
+                    "load_shedding": data.get("load_shedding", {}),
+                }
+            }
+    except Exception:
+        return {"type": "euler_limits", "limits": {}}
 
 
 async def broadcast(data: dict):
@@ -67,7 +89,7 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 async def _stop_current():
-    global collector_task, current_collector
+    global collector_task, current_collector, current_username
     if collector_task and not collector_task.done():
         collector_task.cancel()
         try:
@@ -81,7 +103,14 @@ async def _stop_current():
         except Exception:
             pass
         current_collector = None
+    current_username = ""
     await asyncio.sleep(1.5)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await _stop_current()
+    connected_clients.clear()
 
 
 async def start_monitor(username: str, ws: WebSocket):
@@ -101,6 +130,7 @@ async def start_monitor(username: str, ws: WebSocket):
 
     try:
         await ws.send_text(json.dumps({"type": "status", "message": f"Conectando em {username}..."}))
+        await ws.send_text(json.dumps(await fetch_euler_rate_limits()))
     except Exception:
         pass
 
@@ -112,6 +142,8 @@ async def start_monitor(username: str, ws: WebSocket):
             collector.on_event(broadcast)
             try:
                 await collector.start()
+                await broadcast({"type": "status", "message": f"Conexao encerrada em {username}, reconectando..."})
+                await asyncio.sleep(3)
             except asyncio.CancelledError:
                 await collector.stop()
                 break

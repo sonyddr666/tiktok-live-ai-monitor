@@ -1,1 +1,7 @@
 .env
+__pycache__/main.cpython-314.pyc
+monitor/__pycache__/__init__.cpython-314.pyc
+monitor/__pycache__/euler_counter.cpython-314.pyc
+monitor/__pycache__/collector.cpython-314.pyc
+web/__pycache__/__init__.cpython-314.pyc
+web/__pycache__/server.cpython-314.pyc
