@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Set, Optional
 
@@ -9,6 +10,11 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+
+# Garante que o root do projeto esteja no path uma unica vez
+_root = str(Path(__file__).parent.parent)
+if _root not in sys.path:
+    sys.path.insert(0, _root)
 
 app = FastAPI(title="TikTok Live Monitor")
 
@@ -90,13 +96,7 @@ async def start_monitor(username: str, ws: WebSocket):
     await _stop_current()
     current_username = username
 
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent))
     from monitor.collector import LiveCollector
-
-    collector = LiveCollector(username)
-    current_collector = collector
-    collector.on_event(broadcast)
 
     try:
         await ws.send_text(json.dumps({"type": "status", "message": f"Conectando em {username}..."}))
@@ -104,22 +104,31 @@ async def start_monitor(username: str, ws: WebSocket):
         pass
 
     async def run_with_retry():
+        global current_collector
         while True:
+            # Nova instancia a cada tentativa — TikTokLiveClient nao e reutilizavel
+            collector = LiveCollector(username)
+            current_collector = collector
+            collector.on_event(broadcast)
             try:
                 await collector.start()
             except asyncio.CancelledError:
+                await collector.stop()
                 break
             except Exception as e:
                 err = str(e)
                 await broadcast({"type": "error", "message": err})
-                wait = 30 if "RATE_LIMIT" in err or "rate_limit" in err else 10
+                try:
+                    await collector.stop()
+                except Exception:
+                    pass
+                wait = 30 if "RATE_LIMIT" in err or "rate_limit" in err.lower() else 10
                 await asyncio.sleep(wait)
-                if current_collector is collector:
-                    await broadcast({"type": "status", "message": f"Reconectando em {username}..."})
+                await broadcast({"type": "status", "message": f"Reconectando em {username}..."})
 
     collector_task = asyncio.create_task(run_with_retry())
 
 
 if __name__ == "__main__":
     port = int(os.getenv("WEB_PORT", 8000))
-    uvicorn.run("web.server:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("web.server:app", host="0.0.0.0", port=port, reload=False, log_level="info")
