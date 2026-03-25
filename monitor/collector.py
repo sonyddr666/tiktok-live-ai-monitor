@@ -9,23 +9,19 @@ from TikTokLive.events import (
     CommentEvent, GiftEvent, LikeEvent, JoinEvent,
     FollowEvent, ShareEvent, RoomUserSeqEvent
 )
+from monitor.euler_counter import patch as patch_euler
+
+# Aplica interceptor de requests reais na importacao
+patch_euler()
 
 
 def _apply_euler_key():
-    """Aplica a chave da Euler Stream se estiver no .env, evitando rate limit."""
     key = os.getenv("EULER_API_KEY", "").strip()
     if key:
         WebDefaults.tiktok_sign_api_key = key
 
 
 def safe_avatar(user) -> str:
-    """
-    Extrai URL do avatar com segurança.
-    A lib TikTokLive muda a estrutura entre versões:
-      - user.avatar_thumb.url_list[0]  (versões novas)
-      - user.avatar.url                (versões antigas)
-    Tenta todos os caminhos sem nunca lançar exceção.
-    """
     if user is None:
         return ''
     for attr in ('avatar_thumb', 'avatar_larger', 'avatar_medium'):
@@ -59,7 +55,7 @@ def safe_str(user, attr: str, default='') -> str:
 
 class LiveCollector:
     def __init__(self, username: str):
-        _apply_euler_key()  # aplica antes de criar o client
+        _apply_euler_key()
         self.username = username
         self.client = TikTokLiveClient(unique_id=username)
         self._handlers: List[Callable] = []
